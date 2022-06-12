@@ -10,9 +10,9 @@ import torch
 import torch.nn as nn
 
 
-class GCN(nn.Module):
+class ResGCN(nn.Module):
     def __init__(self, in_d, out_d, regularize=False):
-        super(GCN, self).__init__()
+        super(ResGCN, self).__init__()
         self.regularize = regularize
 
         self.fc = nn.Linear(in_d, out_d)
@@ -22,49 +22,27 @@ class GCN(nn.Module):
             nn.BatchNorm1d(out_d),
             nn.Dropout(0.2))
 
-    def add_self_loops(self, adj_matrix):
+    def forward(self, node_features, edge_mapping, batch_lens):
         '''
-        As the adj_matrix is a sparse matrix ie:
-        mirrored along the identity axis must add 
-        self loops to both rows and columns
+        node_features: [1, BS*L, N]
+        edge_mapping: 
+            - col 1 is # of edge connections
+            - col 2 is nodes connected to the first
         '''
-
-        return adj_matrix
-        
-
-    def forward(self, node_features, node_, add_self_loop=True):
-        '''
-        node_features: [BS, L, N]
-        adj_matrix: [BS, LxL] should be a sparse adj_matrix
-        ie: 1 = edge link 0 = no edge link
-        degree is the # of nodes connected to another node
-        '''
-        if add_self_loop:
-            adj_matrix = self.add_self_loops(adj_matrix)
-            
-        degree = adj_matrix.sum(dim=2)
-        n_nodes = node_features.shape[2]
         # Embed node features
         node_features = self.fc(node_features)
         residual = node_features
         # Perform message passing 
-        # Select connected nodes
-        edges = adj_matrix.nonzero()
-        # Efficient selection of connected nodes
-        edge_connection = edges[:,0] * n_nodes + edges[:,1]
-        node_idxs = edges[:,0] * n_nodes + edges[:,2]
         node_features = node_features.transpose(2,1).squeeze(0)
-        node_idxs = torch.index_select(node_features, index=node_idxs, dim=0)
-        # Message pass to connected nodes
+        node_idxs = torch.index_select(node_features, index=edge_mapping[1], dim=0)
         x = torch.zeros_like(node_features)
-        node_features = x.index_add_(dim=0, index=edge_connection, source=node_idxs)
-        # Trim to size
-        node_features = node_features[:n_nodes, :].squeeze(0)
+        new_node_features = x.index_add_(dim=0, index=edge_mapping[0], source=node_idxs)
+        new_node_features = new_node_features.transpose(0,1)
         # Normalization
-        node_features = (node_features + residual) / degree
-        # # Regularization
-        # if self.regularize:
-        #     node_features = self.regularization(node_features)
+        node_features = (new_node_features + residual) / batch_lens
+        # Regularization
+        if self.regularize:
+            node_features = self.regularization(node_features)
         return node_features
 
 def data2batch(nodes:list, adj_matrices:list, add_self_connections=True):
@@ -79,6 +57,7 @@ def data2batch(nodes:list, adj_matrices:list, add_self_connections=True):
     Second column is used to select the features from node tensor
     and first column is used to add the selected nodes features
     '''
+    # Edge processing
     edge_idxs = []
     for i in range(len(nodes)):
         node = nodes[i]
@@ -89,45 +68,48 @@ def data2batch(nodes:list, adj_matrices:list, add_self_connections=True):
             adj_matrix = adj_matrix + self_connections
         # Extract edge idxs from adj_matrix
         edges = adj_matrix.nonzero()
-        edge_connection = edges[:,0] * n_nodes + edges[:,1]
-        node_idxs = edges[:,0] * n_nodes + edges[:,2]
+        edge_connection = torch.tensor(edges[:,0] * n_nodes + edges[:,1], dtype=torch.int32)
+        node_idxs = torch.tensor(edges[:,0] * n_nodes + edges[:,2], dtype=torch.int32)
         edge_idx = torch.stack((edge_connection, node_idxs))
         if i != 0:
-            print(n_prev_nodes)
             edge_idx += n_prev_nodes
         edge_idxs.append(edge_idx)
         n_prev_nodes = n_nodes
-    return torch.cat(edge_idxs, dim=1)
+    return torch.cat(nodes, dim=1).float(), torch.cat(edge_idxs, dim=1).int()
 
 
 # Finish vectorising 
 
-gcn=GCN(1, 2)
-node_features = torch.tensor([[
+gcn=ResGCN(2, 10)
+node_features_1 = torch.tensor([[
     [2,4],
     [3,3],
     [1,2],
     [3,2],
 ]])
-adj_matrix = torch.tensor([[
-    [1, 0, 1, 1],
-    [0, 1, 0, 1],
-    [1, 0, 1, 1],
-    [1, 1, 1, 1],
+node_features_2 = torch.tensor([[
+    [2,4],
+    [3,3],
+    [1,2],
+    [1,2],
+    [3,2],
+]])
+adj_matrix_1 = torch.tensor([[
+    [1, 0, 1, 0],
+    [0, 1, 0, 0],
+    [1, 0, 1, 0],
+    [0, 0, 0, 0],
+]])
+adj_matrix_2 = torch.tensor([[
+    [1, 0, 0, 0, 1],
+    [0, 1, 0, 1, 1],
+    [0, 0, 1, 0, 1],
+    [0, 1, 0, 1, 1],
+    [1, 1, 1, 1, 1],
 ]])
 
 
-import networkx as nx
-vocab = MolecularVocab()
-graph_1 = smiles_to_graph('CCCC', vocab.atom_stoi)
-nodes_1, adj_matrix_1, edge_attr = numerate_features(graph_1)
-sparse = nx.to_scipy_sparse_matrix(graph_1)
+nodes, edges_mapping = data2batch([node_features_1, node_features_2], [adj_matrix_1, adj_matrix_2])
+out = gcn(nodes, edges_mapping, len(nodes))
 
-edges_mapping = data2batch([node_features, node_features], [adj_matrix, adj_matrix])
-print(edges_mapping)
-
-gcn.fc.weight.data = torch.tensor(torch.eye(4))
-gcn.fc.bias.data = torch.tensor(torch.tensor([0,0,0,0]))
-
-out = gcn(node_features.transpose(2,1).float(), adj_matrix.float(), True)
-print(out.T)
+print(out)

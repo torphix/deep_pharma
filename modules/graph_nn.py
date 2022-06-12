@@ -113,34 +113,4 @@ gcn.fc.bias.data = torch.tensor(torch.tensor([0,0,0,0]))
 out = gcn(node_features.transpose(2,1).float(), adj_matrix.float(), True)
 print(out.T)
 
-# x = torch.tensor([
-#         [2., 4.],
-#         [1., 2.],
-#         [3., 2.],
-#         [3., 3.],
-#         [1., 2.],
-#         [3., 2.],
-#         [2., 4.],
-#         [3., 3.],
-#         [1., 2.],
-#         [3., 2.],
-#         [2., 4.],
-#         [3., 3.],
-#         [1., 2.],
-#         [3., 2.]])
-
-# y = torch.zeros_like(x).float()
-# x = x.float().index_add(0, torch.tensor([0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]), x.float())
-# print(x)
-
-# z = torch.zeros_like(x)
-# z = z.scatter_add_(0, torch.tensor([[0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]]), x.float())
-# print(z)
-
-# Weight the values in the adjacency matrix rather than naively applying, this is because 
-# If a node has the same connection (including self connections) as another node then it will return the same value thereby removing the unique representation of that nodes ie: nodes are now identical
-# Implent the GAT
-
-# Select index node features
-# Summate node features selected features
-# Normalise
+# Test on real data see if you can get convergance

@@ -63,6 +63,7 @@ class ADMEDataset(Dataset):
     def collate_fn(self, batch):
         return Batch.from_data_list(batch)
 
+
 def load_datasets(dataset_names):
     datasets = {}
     for name in dataset_names:
