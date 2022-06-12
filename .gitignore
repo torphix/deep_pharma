@@ -1,0 +1,4 @@
+saved_models/
+logs/
+lightning_logs/
+__pycache__/
