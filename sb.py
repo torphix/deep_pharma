@@ -32,13 +32,16 @@ class GCN(nn.Module):
         return adj_matrix
         
 
-    def forward(self, node_features, edge_mapping):
+    def forward(self, node_features, node_, add_self_loop=True):
         '''
         node_features: [BS, L, N]
         adj_matrix: [BS, LxL] should be a sparse adj_matrix
         ie: 1 = edge link 0 = no edge link
         degree is the # of nodes connected to another node
         '''
+        if add_self_loop:
+            adj_matrix = self.add_self_loops(adj_matrix)
+            
         degree = adj_matrix.sum(dim=2)
         n_nodes = node_features.shape[2]
         # Embed node features
