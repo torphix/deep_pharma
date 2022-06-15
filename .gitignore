@@ -2,3 +2,4 @@ saved_models/
 logs/
 lightning_logs/
 __pycache__/
+data/

@@ -1,54 +1,100 @@
-from ADMET.utils import TASKS
-from ADMET.inference import dataset_inference
-from ADMET.multiprocess import multi_train_ADMET
-from ADMET.train import train_ADMET, train_lightning
+import sys
+import torch
+import argparse
+from utils import open_configs
+from ADMET.utils import load_models
+from ADMET.train import train_ADMET
+from ADMET.evaluation import evaluate
+from ADMET.data import DatasetHandler
 
 if __name__ == '__main__':
-    # command = sys.argv[1]    
-    # parser = argparse.ArgumentParser()
-    dataset_name = 'Lipophilicity_AstraZeneca'
-    dataset_info = TASKS[dataset_name]
-    dataset_params = {
-        'split':[0.8, 0.1, 0.1],
-        'use_coords': False,
-        'atom_features':[
-            'atomic_mass','implicit_valence',
-            'explicit_valence','formal_charge',
-            'hybridization', 'is_aromatic',
-            'is_isotope', 'chiral_tag', 'vocab_idx'],
-        'bond_features':[
-            'bond_type', 'is_aromatic',
-            'is_conjugated', 'bond_stereo']
-    }
-    train_ADMET(
-        dataset_name, 
-        dataset_info['task_type'],
-        dataset_info['use_log_scale'],
-        epochs=30,
-        val_n_steps=5,
-        log_n_steps=5,
-        optim_params={'lr':1e-4, 'betas':[0.9, 0.999]},
-        scheduler_params={'gamma':0.9, 'step_size':5, 'min_lr':3e-6},
-        dataset_params=dataset_params,
-        dataloader_params={'shuffle':True, 'batch_size':64, 'pin_memory':True},
-        root_model_params={'in_d':10, 'out_d':1},
-        head_model_params={'hid_ds':[1, 128, 128, 1]},
-        device='cpu')
+    command = sys.argv[1]    
+    parser = argparse.ArgumentParser()
 
-    # multi_train_ADMET(
-    #     dataset_names=['Bioavailability_Ma', 'Lipophilicity_AstraZeneca'],
-    #     epochs=30,
-    #     val_n_steps=10,
-    #     log_n_steps=5,
-    #     optim_params={'lr':1e-4, 'betas':[0.9, 0.999]},
-    #     scheduler_params={'gamma':0.9, 'step_size':5, 'min_lr':3e-6},
-    #     dataset_params=dataset_params,
-    #     dataloader_params={'shuffle':True, 'batch_size':64, 'pin_memory':True},
-    #     root_model_params={'in_d':10, 'out_d':1},
-    #     device=None,
-    #     )
-    # train_lightning(dataset_name, dataset_info['task_type'], dataset_info['use_log_scale'])
+    if command == 'train':
+        parser.add_argument('-mp', '--model_path', default=None, type=str)
+        args, lf_args = parser.parse_known_args()
 
+        # Load data & configs
+        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        print(f'Using device: {device}')
+        config = open_configs(['ADMET'])[0]
+        config['data']['dataset_names'] = [name.lower() for name in config['data']['dataset_names']]
+        dataset_handler = DatasetHandler(**config['data']['dataset_params'])
+        train_dl, val_dl, test_dl = dataset_handler.load_dataloaders(
+                                        config['data']['dataset_names'],
+                                        config['data']['dataloader_params'])
 
+        root_model, head_models = load_models(
+            config['data']['dataset_names'],
+            args.model_path, 
+            config['models']['root_model'],
+            config['models']['head_models'],
+            device)
 
-    # dataset_inference('Lipophilicity_AstraZeneca', 'saved_models/ckpt_1')
+        # 1st round of training
+        train_ADMET(
+            train_dl=train_dl, 
+            val_dl=None, 
+            test_dl=None,
+            dataset_names=config['data']['dataset_names'],  
+            epochs=config['train']['epochs'],
+            val_n_steps=config['train']['val_n_steps'],
+            log_n_steps=config['train']['log_n_steps'],
+            optimizer_params=config['train']['optimizer_params'],
+            scheduler_params=config['train']['scheduler_params'],
+            root_model=root_model,
+            head_models=head_models,
+            device=device)
+
+        print('Evaluating on full dataset...')
+        dataset_handler.split_size = [1,0,0]
+        dataloader = dataset_handler.load_dataloaders(
+                                config['data']['dataset_names'],
+                                config['data']['dataloader_params'])[0]
+
+        misclassifed, _ = evaluate(
+            root_model=root_model,
+            head_models=head_models,
+            dataloader=dataloader,
+            dataset_names=config['data']['dataset_names'],
+            device=device,
+            output_log=True)
+
+    elif command == 'evaluate':
+        parser.add_argument('-mp', '--model_path', required=True, type=str)
+        parser.add_argument('-fi', '--finetune_iters', required=True, type=str)
+        parser.add_argument('-d', '--device', default=None, type=str)
+        args, lf_args = parser.parse_known_args()
+
+        if args.device is None:
+            device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        else:
+            device = args.device
+
+        config = open_configs(['ADMET'])[0]
+
+        # Load data & configs
+        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        print(f'Using device: {device}')
+        config = open_configs(['ADMET'])[0]
+        dataset_handler = DatasetHandler(**config['data']['dataset_params'])
+        dataset_handler.split_size = [1]
+        dataloader = dataset_handler.load_dataloaders(
+                                    config['data']['dataset_names'], 
+                                    config['data']['dataloader_params'])
+
+        root_model, head_models = load_models(
+            config['data']['dataset_names'],
+            args.model_path, 
+            config['models']['root_model'],
+            config['models']['head_models'],
+            device)
+
+        misclassifed, _ = evaluate(
+            root_model=root_model,
+            head_models=head_models,
+            dataloader=dataloader,
+            dataset_names=config['data']['dataset_names'],
+            device=device,
+            output_log=True)

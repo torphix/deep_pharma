@@ -3,10 +3,13 @@ from tqdm import tqdm
 import torch.nn as nn
 import pytorch_lightning as ptl
 import torch.nn.functional as F
+from modules.res_gcn import ResGCN
+from pytorch_lightning import Trainer
 from torch.utils.data import DataLoader
-from ADMET.models import HeadModel, GATNet, GCNNet
 from modules.scheduler import CustomScheduler
+from ADMET.models import HeadModel, RootModel
 from ADMET.data import load_datasets, load_tdc_dataset
+
 
 class ADMETrainModule(ptl.LightningModule):
     def __init__(self,
@@ -19,7 +22,7 @@ class ADMETrainModule(ptl.LightningModule):
         self.task_type = task_type        
         self.log_scale = log_scale
 
-        self.root_model = GCNNet(10, 128)
+        self.root_model = RootModel(10, 128)
 
         if root_model_path is not None:
             self.root_model.load_state_dict(torch.load(root_model_path))
@@ -29,7 +32,7 @@ class ADMETrainModule(ptl.LightningModule):
         })
 
         self.train_ds, self.val_ds, self.test_ds = \
-            load_tdc_dataset(dataset_name)
+            load_tdc_dataset(dataset_name, split=[0.8, 0.1,0.1])
 
     def train_dataloader(self):
         return DataLoader(
@@ -55,7 +58,8 @@ class ADMETrainModule(ptl.LightningModule):
             batch.y = torch.log(batch.y)
         # Loss
         if self.task_type == 'binary_classification':
-            loss = F.binary_cross_entropy_with_logits(output.float(), batch.y.float())
+            loss = F.binary_cross_entropy_with_logits(
+                output.float(), batch.y.float())
         elif self.task_type == 'regression':
             loss = F.mse_loss(output.float(), batch.y.float())        
         return loss
@@ -74,5 +78,12 @@ class ADMETrainModule(ptl.LightningModule):
         return {'optimizer':optimizer, 'scheduler': scheduler}
 
 
-# Pick up point test with lighitning see why loss is different
-# Multi processing
+def train_lightning(          
+            dataset_name,
+            task_type,
+            log_scale):
+    torch.manual_seed(42)
+    train_module = ADMETrainModule(dataset_name, task_type, log_scale)
+
+    trainer = Trainer(max_epochs=30, gpus=1)
+    trainer.fit(train_module)

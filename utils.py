@@ -1,5 +1,7 @@
 import re
+import yaml
 import torch
+import numpy as np
 import selfies as sf
 import networkx as nx
 from rdkit import Chem
@@ -22,8 +24,7 @@ class MolecularVocab():
             'In', 'Ta', 'Pt', 'Y', 'Ce', 'Au', 'Se', 'K', 'Pr', 'Rh', 'C', 
             'Cr', 'As', 'V', 'Br', 'Si', 'Sb', 'Mo', 'Te', 'Hg', 'Li', 'Ag', 
             'Ru', 'Be', 'Pb', 'Al', 'Zr', 'Nb', 'W', 'Re', 'Sn', 'Ge', 'Sr',
-            'Nd', 'Ti', 'Cu', 'Ir', 'Ba', 'Cl', 'Sm', 'Mg', 'B', 'Co'}
-
+            'Nd', 'Ti', 'Cu', 'Ir', 'Ba', 'Cl', 'Sm', 'Mg', 'B', 'Co','Tl', 'Tc', '*'}
         self.atom_stoi = {v:i for i,v in enumerate(_atom_vocab)}
         self.atom_itos = {i:v for i,v in enumerate(_atom_vocab)}
 
@@ -193,6 +194,7 @@ def numerate_features(
         Chem.rdchem.HybridizationType.S: 3,
         Chem.rdchem.HybridizationType.SP3D: 4,
         Chem.rdchem.HybridizationType.SP3D2: 5,
+        Chem.rdchem.HybridizationType.UNSPECIFIED: 6,
     }
     stereo_dict = {
         Chem.rdchem.BondStereo.STEREOANY: 0,
@@ -236,28 +238,44 @@ def numerate_features(
                 node_features.append(torch.tensor([v]))
     nodes = torch.cat(node_features).view(len(graph.nodes), -1)
     # Edge features
-    edge_attrs = []
-    for edge_idx, edge in enumerate(graph.edges(data=True)):
-        _, _, node_data = edge
-        for i, (k, v) in enumerate(node_data.items()):
-            if k == 'bond_type':
-                edge_one_hot = torch.zeros((len(bond_dict.keys())))
-                edge_one_hot[bond_dict[v]] = 1
-                edge_attrs.append(edge_one_hot)
-            elif k == 'bond_stereo': 
-                stereo_one_hot = torch.zeros((len(stereo_dict.keys())))
-                stereo_one_hot[stereo_dict[v]] = 1
-                edge_attrs.append(stereo_one_hot)
-            else:
-                edge_attrs.append(torch.tensor([float(v)]) + 1)
-    edge_attrs = torch.cat(edge_attrs).view(len(graph.edges()), -1)
+    # edge_attrs = []
+    # for edge_idx, edge in enumerate(graph.edges(data=True)):
+    #     _, _, node_data = edge
+    #     for i, (k, v) in enumerate(node_data.items()):
+    #         if k == 'bond_type':
+    #             edge_one_hot = torch.zeros((len(bond_dict.keys())))
+    #             edge_one_hot[bond_dict[v]] = 1
+    #             edge_attrs.append(edge_one_hot)
+    #         elif k == 'bond_stereo': 
+    #             stereo_one_hot = torch.zeros((len(stereo_dict.keys())))
+    #             stereo_one_hot[stereo_dict[v]] = 1
+    #             edge_attrs.append(stereo_one_hot)
+    #         else:
+    #             edge_attrs.append(torch.tensor([float(v)]) + 1)
+    # edge_attrs = torch.cat(edge_attrs).view(len(graph.edges()), -1)
     # Adj matrix
     adj_matrix = nx.adjacency_matrix(graph)
     adj_matrix = from_scipy_sparse_matrix(adj_matrix)[0]
-    return (torch.tensor(nodes), adj_matrix, torch.tensor(edge_attrs))
+    return (torch.tensor(nodes), adj_matrix) #torch.tensor(edge_attrs))
 
 def remove_attr_from_nodes(graph:nx.Graph, attrs:list):
     for node, data in graph.nodes(data=True):
         for attr in attrs:
             del graph.nodes[node][attr]
     return graph
+
+def open_configs(configs:list):
+    opened_configs = []
+    for config in configs:
+        with open(f'configs/{config}.yaml', 'r') as f:
+            opened_configs.append(yaml.load(f.read(), Loader=yaml.FullLoader))
+    return opened_configs
+
+
+def write_file(file, contents):
+    with open(file, 'w') as f:
+        f.write(contents)
+
+# Pandas styling
+def highlight_above(s, props='color:white;background-color:red'):
+    return np.where(s > 0.6, props, '')

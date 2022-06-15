@@ -62,55 +62,41 @@ class GCN(nn.Module):
         #     node_features = self.regularization(node_features)
         return node_features
 
-def data2batch(nodes:list, adj_matrices:list, add_self_connections=True):
-    '''
-    Converts a list of nodes and adj matrices 
-    into into a single graph disjointed strucutre 
-    for parrallel processing
-    '''
-    for i in range(len(nodes)):
-        node = nodes[i]
-        n_nodes = node.shape[0]
-        adj_matrix = adj_matrices[i]
-        if add_self_connections:
-            self_connections = torch.eye(adj_matrix.shape[-1])
-            adj_matrix = adj_matrix + self_connections
-        # Extract edge idxs from adj_matrix
-        edges = adj_matrix.nonzero()
-        edge_connection = edges[:,0] * n_nodes + edges[:,1]
-        node_idxs = edges[:,0] * n_nodes + edges[:,2]
-    return edge_connection, node_idxs
 
+class ResGatedConv(nn.Module):
+    def __init__(self, in_d, out_d):
+        super().__init__()
+        self.W1 = nn.Linear(in_d, out_d)
+        self.W2 = nn.Linear(in_d, out_d)
+        self.W3 = nn.Linear(in_d, out_d)
+        self.W4 = nn.Linear(in_d, out_d)
 
-# Finish vectorising 
+    def forward(self, x, edge_idx, add_self=True):
+        '''
+        x: [BS*# of nodes, N]
+        edge_idx: [2, # of connections]
+        add_self: if to add self features
+        '''
+        # Embed & Message passing
+        x1 = self.W1(x)
+        x2 = self.message_passing(self.W2(x), edge_idx, add_self)
+        x3 = self.message_passing(self.W3(x), edge_idx, add_self)
+        x4 = self.message_passing(self.W4(x), edge_idx, add_self)
 
-gcn=GCN(1, 2)
-node_features = torch.tensor([[
-    [2,4],
-    [3,3],
-    [1,2],
-    [3,2],
-]])
-adj_matrix = torch.tensor([[
-    [0, 0, 1, 1],
-    [0, 1, 0, 1],
-    [1, 0, 1, 1],
-    [1, 1, 1, 1],
-]])
+        # Gate & Hadamard
+        xN = torch.sigmoid(x3 + x4) * x2
+        # Residual
+        out = xN + x1
+        return out
 
-import networkx as nx
-vocab = MolecularVocab()
-graph_1 = smiles_to_graph('CCCC', vocab.atom_stoi)
-nodes_1, edge_atrs_1, adj_matrix_1 = numerate_features(graph_1)
-print(nx.to_scipy_sparse_matrix(graph_1))
-
-edge_connection, node_idxs = data2batch([node_features], [adj_matrix])
-print(edge_connection, node_idxs)
-
-gcn.fc.weight.data = torch.tensor(torch.eye(4))
-gcn.fc.bias.data = torch.tensor(torch.tensor([0,0,0,0]))
-
-out = gcn(node_features.transpose(2,1).float(), adj_matrix.float(), True)
-print(out.T)
-
-# Test on real data see if you can get convergance
+    def message_passing(self, x, edges, add_self=True):
+        if add_self:
+            x = x + x
+        # Select start nodes
+        src = x.index_select(0, edges[0])
+        tgt = torch.zeros_like(x)
+        # Broad cast indices to include all features
+        edge_idx = edges[1].unsqueeze(1).expand(-1, src.shape[1])
+        # Add node features
+        out = tgt.scatter_add(0, edge_idx, src)
+        return out

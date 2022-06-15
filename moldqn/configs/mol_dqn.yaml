@@ -1,0 +1,42 @@
+seed: 42
+env:
+  starting_state: 'CC'
+  reward_type: 'QED'
+  reward_discount: 0.7 # Closer rewards discounted more
+  length_discount: 0.98 # Shorter molecules = less reward
+  fix_starting_state: False
+  atom_vocab: {'C','O','N', 'P'}
+  allowed_ring_sizes: [3,4,5,6]
+  allow_inter_ring_bond: False
+
+agent:
+  device: 'cuda:0'
+  hid_ds: [513, 1024, 512, 512, 256, 1]
+  batch_size: 128
+  update_tgt: 20
+  gamma: 0.95 # How much to discount the next state value
+  tgt_net_weight_multiplier: 0.995
+  search_epsilon: 0.0 # 1.0 = 100% chance to take random action
+  min_search_epsilon: 0.15 # Minimum 5% chance to take a random action
+  search_epsilon_scalar: 0.99995 # How much to reduce search eps every step
+  max_memory_size: 10000 # Toggle this as is suitable for your memory limitations
+  lr: 3.0e-5
+  scheduler_update: 10000
+  scheduler:
+    gamma: 0.8
+    last_epoch: -1
+
+end_run_action: False
+max_steps: 40
+epochs: 5000
+update_step: 20 # Target networks is updated every 
+max_len: 80
+
+log_path: 'tb_logs'
+log_steps: 500
+
+data:
+  protein_features: 'graphsite'
+  pocket_ligand_data_path: 'data/pocket-ligand.yaml'
+  pocket_data_path: 'data/pocket-data'
+  protein_data_path: 'data/protein-data'

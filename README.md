@@ -77,3 +77,47 @@ edges = normalise_features([edge_atrs_1, edge_atrs_2])
 4. Cluster the classified molecules tother
 
 
+
+
+1. Train code backbone + head model
+
+<!-- Workera -->
+1. Test
+2. Which answers your unsure on
+3. Study 
+4. Iterate
+
+<!-- Workera Deep learning quiz -->
+
+
+<!-- ADME prediction with GNNS -->
+<!-- RL for molecular optimisation for desired properties -->
+<!-- Underestand each element of theory through and through -->
+
+<!-- Process -->
+1. Set up good evaulation pipelines and visualisations of where model is going wrong as well as data distriubtions
+2. Set up UI for ADMET
+3. Set up MOLDQN interface with the reward function a combination of ADMET prediction ie: Guided optimisation using RL
+4. See if grouping tasks together improves performance eg: All toxicity tasks togther all metabolism tasks togther etc
+5. Workera questions
+6. Power point:
+    - Clear explanantion of Graph neural nets and chosen architechture
+    - Clear explanation of RL algorithm used
+
+<!-- Add weighted sampler -->
+<!-- Finish UI -->
+<!-- Power point presentation -->
+
+<!-- Problem -->
+1. When you retrain on false positives what tends to happen is you get less false positives but more False negatives (as biases the model in the opposite direction)
+2. Therefore for the task eg: toxicitiy prediction its important to ascertain which metric is better to oppimise for ie: okay to let a few toxic molecules through? or better to stop a non toxic molecules
+
+
+<!-- Resgated conv notes -->
+1. Why? 
+    - Residuals allow for deeper stacking of layers without loss in accuracy
+    - 
+
+
+<!-- Command -->
+ /home/j/miniconda3/envs/deep_pharma/bin/python main.py train -fte=False --finetune_iters=1
