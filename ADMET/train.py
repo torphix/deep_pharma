@@ -1,13 +1,11 @@
 import os
 import torch
-import torch.nn as nn
 from tqdm import tqdm
 import torch.nn.functional as F
 from ADMET.evaluation import evaluate
 from modules.scheduler import CustomScheduler
-from ADMET.models import HeadModel, RootModel
 from torch.utils.tensorboard import SummaryWriter
-from ADMET.utils import TASKS, count_parameters, load_models, progress_msg, smiles_to_fig
+from ADMET.utils import TASKS, count_parameters, progress_msg, smiles_to_fig
 
 
 def train_ADMET(
@@ -56,7 +54,11 @@ def train_ADMET(
     print(f'Root Model Parameters: {count_parameters(root_model)}M')
     print(f'Head Model Parameters: {count_parameters(head_models)}M')
 
-    root_model = root_model.to(device)
+    if freeze_root:
+        print('Freeze root model')
+        root_model = root_model.to(device)
+        for param in root_model.parameters():
+            param.requires_grad = False
     head_models = head_models.to(device)
 
     # Train Loop
@@ -72,7 +74,7 @@ def train_ADMET(
                                 values.x.to(device), 
                                 values.edge_index.to(device),
                                 values.batch.to(device)) 
-                output = head_models[name](output)
+                output = head_models[name](output, values.edge_index.to(device), values.batch.to(device))
                 output = output.squeeze(1)
                 values.y = values.y.to(device)
                 # Loss 

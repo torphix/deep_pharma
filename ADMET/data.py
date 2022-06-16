@@ -1,13 +1,13 @@
 import torch
 import pandas as pd
+from ADMET.utils import TASKS
 from tdc.single_pred import ADME, Tox
 from torch.utils.data import DataLoader
 from tdc.utils import retrieve_dataset_names
 from torch_geometric.data import Data, Batch
 from torch.utils.data import Dataset, ConcatDataset
 from sklearn.model_selection import train_test_split
-from torch.utils.data.sampler import WeightedRandomSampler
-from utils import MolecularVocab, numerate_features, smiles_to_graph
+from ADMET.utils import MolecularVocab, numerate_features, smiles_to_graph
 
 
 class ADMETDataset(Dataset):
@@ -75,7 +75,10 @@ class DatasetHandler():
             atom_features = ['atomic_mass', 'implicit_valence', 'explicit_valence', 'formal_charge', 'hybridization', 'is_aromatic', 'is_isotope', 'chiral_tag', 'vocab_idx'],
             bond_features = ['bond_type', 'is_aromatic', 'is_conjugated', 'bond_stereo'],
             seed=42):
-
+        '''
+        Atom features:
+            - implicit valence = valence of the atom minus the valence calculated from the bond connections
+        '''
         self.adme_names = retrieve_dataset_names('ADME')
         self.tox_names = retrieve_dataset_names('Tox')
 
@@ -97,7 +100,7 @@ class DatasetHandler():
         else:
             raise ValueError(f'Dataset: {dataset_name} not found!')
         # Process & split
-        if self.balance_labels:
+        if self.balance_labels and TASKS[dataset_name]['task_type'] == 'binary_classification':
             dataset = dataset.balanced(oversample=self.oversample, seed=self.seed)
         else: dataset = dataset.get_data()
         if int(self.split_size[0]) != 1:

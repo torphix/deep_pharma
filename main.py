@@ -1,11 +1,10 @@
 import sys
 import torch
 import argparse
-from utils import open_configs
-from ADMET.utils import load_models
 from ADMET.train import train_ADMET
 from ADMET.evaluation import evaluate
 from ADMET.data import DatasetHandler
+from ADMET.utils import load_models, open_configs
 
 if __name__ == '__main__':
     command = sys.argv[1]    
@@ -45,6 +44,7 @@ if __name__ == '__main__':
             scheduler_params=config['train']['scheduler_params'],
             root_model=root_model,
             head_models=head_models,
+            freeze_root=config['train']['freeze_root'],
             device=device)
 
         print('Evaluating on full dataset...')

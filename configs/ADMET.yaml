@@ -5,7 +5,8 @@ models:
     hid_ds: [128, 128, 256, 256, 128]
 
 data:
-  dataset_names: ['hERG', 'AMES', 'DILI', 'Carcinogens_Lagunin', 'ClinTox', 'LD50_zhu']
+  dataset_names: ['BBB_Martins']
+   #['hERG', 'AMES', 'DILI', 'Carcinogens_Lagunin', 'ClinTox', 'LD50_zhu']
   dataset_params:
     balance_labels: True
     oversample: True # if false undersamples unbalance classes
@@ -20,7 +21,7 @@ data:
     num_workers: 4
 
 train:
-  epochs: 20
+  epochs: 35
   finetune_epochs: 0
   val_n_steps: 5
   log_n_steps: 5
@@ -32,6 +33,6 @@ train:
     step_size: 5
     min_lr: 5.0e-6
     
-  freeze_root: False
-  root_model_path: null
+  freeze_root: Tue
+  root_model_path: /home/j/Desktop/Programming/deep_pharma/saved_models/adme/root_model.pth
   device: 'cuda:0'

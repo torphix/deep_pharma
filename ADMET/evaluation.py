@@ -27,7 +27,10 @@ def evaluate(
                                 values.x.to(device), 
                                 values.edge_index.to(device),
                                 values.batch.to(device)) 
-                output = head_models[name](output)
+                output = head_models[name](
+                                output,
+                                values.edge_index.to(device),
+                                values.batch.to(device))
                 output = output.squeeze(1)
                 values.y = values.y.to(device)
                 # Loss 
@@ -49,7 +52,7 @@ def evaluate(
                     misclassifed[name] = set(total_misclassified) | select_misclassified(output, values.y, values.smiles)
                 elif task_type == 'regression':
                     loss += F.mse_loss(output.float(), values.y.float()) 
-    if output_log:
+    if output_log and task_type == 'binary_classification':
         print(f'TN: {tn} FP: {fp}, FN: {fn}, TP: {tp}')
         print(f'Precision: {tp/(tp+fp)} Recall: {tp/(tp+fn)}')
         print(f'Total misclassified: {sum([len(v) for v in misclassifed.values()])}')

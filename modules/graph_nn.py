@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 
-from utils import MolecularVocab, numerate_features, smiles_to_graph
 
 
 class GCN(nn.Module):
