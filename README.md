@@ -6,11 +6,11 @@ Uses a multi-headed network approach as using a singular backbone allows for fea
 
 
 ## Commands
-/home/j/miniconda3/envs/deep_pharma/bin/python main.py train 
-/home/j/miniconda3/envs/deep_pharma/bin/python main.py evaulate
+```python main.py train ```
+```python main.py evaulate```
 
 ### UI 
-/home/j/miniconda3/envs/deep_pharma/bin/python ui.py 
+```python ui.py ```
 
 ## References
 ```
