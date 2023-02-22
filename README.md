@@ -13,6 +13,7 @@ Uses a multi-headed network approach as using a singular backbone allows for fea
 /home/j/miniconda3/envs/deep_pharma/bin/python ui.py 
 
 ## References
+```
 TDC Dataset: https://github.com/mims-harvard/TDC
 @article{Huang2021tdc,
   title={Therapeutics Data Commons: Machine Learning Datasets and Tasks for Drug Discovery and Development},
@@ -21,5 +22,5 @@ TDC Dataset: https://github.com/mims-harvard/TDC
   journal={Proceedings of Neural Information Processing Systems, NeurIPS Datasets and Benchmarks},
   year={2021}
 }
-
+```
 Implicit valence = atom valence - valence from bond connections
